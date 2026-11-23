@@ -1,0 +1,20 @@
+seed: 42
+output_dir: experiments/paper_patch_ae
+data:
+  # Change this root to the mounted study directory on the training server.
+  root: ./data
+  pairs_csv: data/csv/paired_t1mri_fdg_pet_adni_exp020.csv
+  split_csv: data/csv/split_t1mri_fdg_pet_adni_exp020_seed42.csv
+  image_shape: [160, 192, 160]
+  patch_shape: [40, 48, 40]
+model:
+  latent_channels: 4
+  base_channels: 16
+training:
+  epochs: 100
+  batch_size: 2
+  patch_chunk_size: 16
+  lr: 0.0001
+  weight_decay: 0.0
+  lambda_rec: 2.0
+  num_workers: 4

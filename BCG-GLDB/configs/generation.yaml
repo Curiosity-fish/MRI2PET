@@ -1,0 +1,65 @@
+seed: 42
+output_dir: experiments/paper_bcg_gldb_adni
+data:
+  root: ./data
+  pairs_csv: data/csv/paired_t1mri_fdg_pet_adni_exp020.csv
+  split_csv: data/csv/split_t1mri_fdg_pet_adni_exp020_seed42.csv
+  table_csv: datasets/ADNI/adni_core_features.csv
+  parc98_labelmap: data/atlas/processed/parc98_labelmap_160x196x160.nii.gz
+  cache_dir: data/cache/paper_bcg_gldb_160x192x160
+  image_shape: [160, 192, 160]
+  patch_shape: [40, 48, 40]
+  table_cols:
+    - PTDEMOG_PTGENDER
+    - PTDEMOG_PTEDUCAT
+    - AGE_derived
+    - APOE4_COUNT
+    - APOE4_CARRIER
+    - FAMILY_HISTORY_AD
+    - PARENT_HISTORY_AD
+    - SIBLING_HISTORY_AD
+    - MMSE_MMSCORE
+    - ADAS_TOTAL13
+    - MOCA_MOCA
+    - MEDHIST_MH2NEURL
+    - MEDHIST_MH3HEAD
+    - MEDHIST_MH4CARD
+    - MEDHIST_MH9ENDO
+    - MEDHIST_MH14ALCH
+    - MEDHIST_MH16SMOK
+    - VITALS_VSWEIGHT
+    - VITALS_VSHEIGHT
+    - BMI_derived
+    - VITALS_VSBPSYS
+    - VITALS_VSBPDIA
+    - VITALS_VSPULSE
+    - PHYSICAL_PXABNORM
+    - NEUROEXM_NXABNORM
+patch_ae:
+  checkpoint: experiments/paper_patch_ae/best_patch_ae.pt
+  base_channels: 16
+  chunk_size: 16
+model:
+  channels: [96, 192, 384, 768]
+  mri_channels: [48, 96, 192, 384]
+  time_dim: 384
+  table_token_dim: 128
+  global_token_dim: 256
+  global_depth: 2
+  global_heads: 4
+  use_mri_structure: true
+  use_clinical: true
+  use_global: true
+  use_roi: true
+bridge:
+  steps: 10
+  sigma_max: 0.25
+  eta: 1.0
+training:
+  epochs: 300
+  batch_size: 2
+  gradient_accumulation: 1
+  lr: 0.0001
+  weight_decay: 0.0001
+  amp: bfloat16
+  num_workers: 4

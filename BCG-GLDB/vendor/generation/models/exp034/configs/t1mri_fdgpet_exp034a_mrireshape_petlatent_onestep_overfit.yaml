@@ -1,0 +1,41 @@
+experiment:
+  name: Exp034A_MRIReshape_PETLatent_OneStep_overfit
+  description: 'Fixed MRI AvgPool(4) endpoint to PET latent. Basic time-conditioned 3D UNet, frozen PET AE, image L1 only.'
+  seed: 42
+  output_dir: experiments/Exp034A_MRIReshape_PETLatent_OneStep_overfit
+ae:
+  checkpoint_path: experiments/Exp033J_AE_patch_pet_full/checkpoints/best.pt
+  kind: ae
+  latent_channels: 4
+data:
+  image_size: [160, 192, 160]
+  patch_size: [40, 48, 40]
+  pairs_csv: data/csv/paired_t1mri_fdg_pet_adni_exp020.csv
+  split_csv: data/csv/split_t1mri_fdg_pet_adni_overfit_train100_val20_folds5_seed42_unified.csv
+  table_csv: datasets/ADNI/adni_core_features.csv
+  normalize_inputs: false
+  normalize_targets: false
+  parc98_labelmap_path: data/atlas/processed/parc98_labelmap_160x196x160.nii.gz
+  fold: 0
+  cache_dir: data/cache/t1_fdg_160_192_160_overfit_exp034a
+model:
+  latent_channels: 4
+  channels: [96, 192, 384, 768]
+  time_dim: 384
+  norm_groups: 8
+  dropout: 0.0
+training:
+  epochs: 100
+  batch_size: 2
+  grad_accum: 2
+  learning_rate: 0.0001
+  weight_decay: 0.0001
+  betas: [0.9, 0.999]
+  warmup_epochs: 0
+  num_workers: 4
+  pin_memory: true
+  amp: bf16
+  device: cuda
+evaluation:
+  val_splits: [val_fold0, val_fold1, val_fold2, val_fold3, val_fold4]
+  small_val_subjects: 20

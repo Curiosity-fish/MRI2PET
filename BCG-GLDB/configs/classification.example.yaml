@@ -1,0 +1,58 @@
+seed: 42
+output_dir: experiments/paper_classification
+data:
+  # Point to the final 995-row classification labels and subject-level split.
+  root: ./data
+  labels_csv: classier/data/final_995_labels.csv
+  split_csv: classier/data/final_995_subject_split.csv
+  generation_split_csv: data/csv/split_t1mri_fdg_pet_adni_exp020_seed42.csv
+  table_csv: datasets/ADNI/adni_core_features.csv
+  # Required for MedicalNet50-3D/Baseline; point to the actual Med3D ResNet-50 weights.
+  medicalnet_pretrained_checkpoint: classier/checkpoints/med3d_resnet50.pth
+  train_splits: [train, val]
+  test_split: final_val
+  image_shape: [160, 192, 160]
+training:
+  epochs: 100
+  batch_size: 4
+  lr: 0.0001
+  weight_decay: 0.0001
+  num_workers: 4
+experiments:
+  # The labels CSV must contain each referenced generated-PET path column.
+  source_real_tglm: {model: tglm, modality: mri_pet, pet_path_col: fdg_pet_path}
+  source_ours_tglm: {model: tglm, modality: mri_pet, pet_path_col: synth_ours_path}
+  source_mam_dit_tglm: {model: tglm, modality: mri_pet, pet_path_col: synth_mam_dit_path}
+  source_unet_tglm: {model: tglm, modality: mri_pet, pet_path_col: synth_unet_path}
+  source_mri2pet_tglm: {model: tglm, modality: mri_pet, pet_path_col: synth_mri2pet_path}
+  source_bicyclegan_tglm: {model: tglm, modality: mri_pet, pet_path_col: synth_bicyclegan_path}
+  source_bbdm_tglm: {model: tglm, modality: mri_pet, pet_path_col: synth_bbdm_path}
+  source_madunet_tglm: {model: tglm, modality: mri_pet, pet_path_col: synth_madunet_path}
+  source_gfe_tglm: {model: tglm, modality: mri_pet, pet_path_col: synth_gfe_path}
+  source_pasta_tglm: {model: tglm, modality: mri_pet, pet_path_col: synth_pasta_path}
+  source_il_cldm_tglm: {model: tglm, modality: mri_pet, pet_path_col: synth_il_cldm_path}
+  medicalnet_ours: {model: medicalnet50_3d, modality: mri_pet, pet_path_col: synth_ours_path}
+  medicalnet_real: {model: medicalnet50_3d, modality: mri_pet, pet_path_col: fdg_pet_path}
+  ablation_baseline_ours: {alias_of: medicalnet_ours}
+  ablation_baseline_real: {alias_of: medicalnet_real}
+  dense_ours: {model: 3d_densenet121, modality: pet, pet_path_col: synth_ours_path}
+  dense_real: {model: 3d_densenet121, modality: pet, pet_path_col: fdg_pet_path}
+  vit_ours: {model: 3d_vit_small, modality: pet, pet_path_col: synth_ours_path}
+  vit_real: {model: 3d_vit_small, modality: pet, pet_path_col: fdg_pet_path}
+  swin_ours: {model: 3d_swin_t_encoder, modality: pet, pet_path_col: synth_ours_path}
+  swin_real: {model: 3d_swin_t_encoder, modality: pet, pet_path_col: fdg_pet_path}
+  early_fusion_ours: {model: early_fusion_3d_resnet, modality: mri_pet, pet_path_col: synth_ours_path}
+  early_fusion_real: {model: early_fusion_3d_resnet, modality: mri_pet, pet_path_col: fdg_pet_path}
+  clinical_concat_ours: {model: clinical_concatenation_resnet, modality: mri_pet, pet_path_col: synth_ours_path}
+  clinical_concat_real: {model: clinical_concatenation_resnet, modality: mri_pet, pet_path_col: fdg_pet_path}
+  ablation_table_ours: {model: table_branch, modality: mri_pet, pet_path_col: synth_ours_path}
+  ablation_table_real: {model: table_branch, modality: mri_pet, pet_path_col: fdg_pet_path}
+  ablation_global_ours: {model: global_branch, modality: mri_pet, pet_path_col: synth_ours_path}
+  ablation_global_real: {model: global_branch, modality: mri_pet, pet_path_col: fdg_pet_path}
+  modality_mri: {model: tglm_no_table, modality: mri, pet_path_col: fdg_pet_path}
+  modality_real_pet: {model: tglm_no_table, modality: pet, pet_path_col: fdg_pet_path}
+  modality_ours_pet: {model: tglm_no_table, modality: pet, pet_path_col: synth_ours_path}
+  modality_mri_real_pet: {model: tglm_no_table, modality: mri_pet, pet_path_col: fdg_pet_path}
+  modality_mri_ours_pet: {model: tglm_no_table, modality: mri_pet, pet_path_col: synth_ours_path}
+  modality_mri_real_pet_table: {alias_of: source_real_tglm}
+  modality_mri_ours_pet_table: {alias_of: source_ours_tglm}

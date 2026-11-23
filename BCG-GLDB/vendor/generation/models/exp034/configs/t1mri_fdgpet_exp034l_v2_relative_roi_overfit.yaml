@@ -1,0 +1,87 @@
+experiment:
+  name: Exp034L_v2_K_RelativeROIProfile_overfit
+  description: 'Exp034K finetuning with stable relative Parc98 uptake-profile and contrast losses.'
+  seed: 42
+  output_dir: experiments/Exp034L_v2_K_RelativeROIProfile_overfit
+ae:
+  checkpoint_path: experiments/Exp033J_AE_patch_pet_full/checkpoints/best.pt
+  kind: ae
+data:
+  image_size: [160, 192, 160]
+  patch_size: [40, 48, 40]
+  pairs_csv: data/csv/paired_t1mri_fdg_pet_adni_exp020.csv
+  split_csv: data/csv/split_t1mri_fdg_pet_adni_overfit_train100_val20_folds5_seed42_unified.csv
+  table_csv: datasets/ADNI_NACC_Table.csv
+  max_table_delta_days: 90
+  normalize_inputs: false
+  normalize_targets: false
+  parc98_labelmap_path: data/atlas/processed/parc98_labelmap_160x196x160.nii.gz
+  fold: 0
+  cache_dir: data/cache/t1_fdg_160_192_160_overfit_exp034a
+model:
+  latent_channels: 4
+  channels: [96, 192, 384, 768]
+  bsfe_channels: [48, 96, 192, 384, 192, 96, 48]
+  time_dim: 384
+  norm_groups: 8
+  dropout: 0.0
+  bsfe_base_channels: 24
+  bsfe_channel_mults: [2, 4, 8, 16]
+  bsfe_num_res_blocks: 3
+  bsfe_norm_groups: 32
+  bsfe_dropout: 0.1
+  bsfe_attn_stages: [3]
+  bsfe_attn_heads: 4
+  bsfe_attn_head_dim: 32
+  bsfe_n_tokens: 32
+  bsfe_token_dim: 128
+  bsfe_global_dim: 256
+  pre_down_hidden: 8
+  head_blocks: 2
+  head_out_blocks: 1
+  head_extra_up_channels: [64, 32]
+  head_use_global_film: true
+  head_use_token_film: true
+  head_use_token_cross_attn: true
+  head_attn_heads: 4
+  latent_shape: [40, 48, 40]
+  mamba_token_dim: 128
+  mamba_depth: 1
+  mamba_d_state: 8
+  mamba_d_conv: 3
+  mamba_expand: 1
+  mamba_line_chunk_size: 256
+table:
+  token_dim: 128
+  heads: 4
+  lambda_init: 0.05
+  token_grids: [[10,12,10], [10,12,10], [10,12,10], [10,12,10]]
+bsfe:
+  checkpoint_path: experiments/Exp011b_bsfe_t1mri_fdgpet_fold0/checkpoints/fold0_best.pt
+dvae:
+  latent_dim: 1
+training:
+  epochs: 500
+  batch_size: 1
+  grad_accum: 4
+  learning_rate: 0.00005
+  mamba_learning_rate: 0.00005
+  mamba_warmup_epochs: 10
+  weight_decay: 0.0001
+  num_workers: 4
+  pin_memory: true
+  amp: bf16
+  device: cuda
+loss:
+  global_l1_weight: 1.0
+  brain_l1_weight: 0.5
+  ssim_weight: 0.2
+  mse_weight: 0.1
+  regional_profile_weight: 0.03
+  regional_contrast_weight: 0.02
+  num_regions: 98
+  min_region_voxels: 32
+  data_range: 2.0
+evaluation:
+  val_splits: [val_fold0, val_fold1, val_fold2, val_fold3, val_fold4]
+  small_val_subjects: 20
