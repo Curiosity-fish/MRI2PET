@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import csv
 import json
 import random
@@ -20,6 +21,7 @@ from mri2pet.data.paired_mri_pet_clinical import PairedT1FDGTableDataset
 from mri2pet.metrics.image import ImageMetricCollection
 from mri2pet.models.generation import PaperBCGGLDB, SharedPatchAE
 from mri2pet.losses.generation import (
+    PARC98_ATLAS_SHA256,
     bridge_state,
     generation_loss,
     reverse_step,
@@ -67,6 +69,12 @@ def validate_thesis_config(cfg):
 def load_atlas(path: Path, image_shape, device):
     if not path.exists():
         raise FileNotFoundError(f"Parc98 labelmap not found: {path}")
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    if digest != PARC98_ATLAS_SHA256:
+        raise ValueError(
+            "Parc98 atlas differs from the label map used for the 47 left/right "
+            "pairs. Verify its label semantics and update the mapping before training."
+        )
     array = np.asarray(nib.load(str(path)).dataobj, dtype=np.float32)
     if array.shape[1] == image_shape[1] + 4:
         array = array[:, 2:-2, :]

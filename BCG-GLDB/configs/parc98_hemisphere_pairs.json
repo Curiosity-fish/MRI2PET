@@ -1,0 +1,294 @@
+{
+  "atlas_sha256": "e4ffea9635be911321a4af48f1555bd3ce985e7643c977f455c536d7d65d6a36",
+  "lut_sha256": "0431b317653afa815a872b736fdeff1b831351c3339096cdd4ebb562c098f679",
+  "hemisphere_pairs": [
+    {
+      "left_id": 1,
+      "left_name": "Left-Cerebral-White-Matter",
+      "right_id": 18,
+      "right_name": "Right-Cerebral-White-Matter"
+    },
+    {
+      "left_id": 2,
+      "left_name": "Left-Lateral-Ventricle",
+      "right_id": 19,
+      "right_name": "Right-Lateral-Ventricle"
+    },
+    {
+      "left_id": 3,
+      "left_name": "Left-Inf-Lat-Vent",
+      "right_id": 20,
+      "right_name": "Right-Inf-Lat-Vent"
+    },
+    {
+      "left_id": 4,
+      "left_name": "Left-Cerebellum-White-Matter",
+      "right_id": 21,
+      "right_name": "Right-Cerebellum-White-Matter"
+    },
+    {
+      "left_id": 5,
+      "left_name": "Left-Cerebellum-Cortex",
+      "right_id": 22,
+      "right_name": "Right-Cerebellum-Cortex"
+    },
+    {
+      "left_id": 6,
+      "left_name": "Left-Thalamus",
+      "right_id": 23,
+      "right_name": "Right-Thalamus"
+    },
+    {
+      "left_id": 7,
+      "left_name": "Left-Caudate",
+      "right_id": 24,
+      "right_name": "Right-Caudate"
+    },
+    {
+      "left_id": 8,
+      "left_name": "Left-Putamen",
+      "right_id": 25,
+      "right_name": "Right-Putamen"
+    },
+    {
+      "left_id": 9,
+      "left_name": "Left-Pallidum",
+      "right_id": 26,
+      "right_name": "Right-Pallidum"
+    },
+    {
+      "left_id": 13,
+      "left_name": "Left-Hippocampus",
+      "right_id": 27,
+      "right_name": "Right-Hippocampus"
+    },
+    {
+      "left_id": 14,
+      "left_name": "Left-Amygdala",
+      "right_id": 28,
+      "right_name": "Right-Amygdala"
+    },
+    {
+      "left_id": 16,
+      "left_name": "Left-Accumbens-area",
+      "right_id": 29,
+      "right_name": "Right-Accumbens-area"
+    },
+    {
+      "left_id": 17,
+      "left_name": "Left-VentralDC",
+      "right_id": 30,
+      "right_name": "Right-VentralDC"
+    },
+    {
+      "left_id": 31,
+      "left_name": "ctx-lh-bankssts",
+      "right_id": 65,
+      "right_name": "ctx-rh-bankssts"
+    },
+    {
+      "left_id": 32,
+      "left_name": "ctx-lh-caudalanteriorcingulate",
+      "right_id": 66,
+      "right_name": "ctx-rh-caudalanteriorcingulate"
+    },
+    {
+      "left_id": 33,
+      "left_name": "ctx-lh-caudalmiddlefrontal",
+      "right_id": 67,
+      "right_name": "ctx-rh-caudalmiddlefrontal"
+    },
+    {
+      "left_id": 34,
+      "left_name": "ctx-lh-cuneus",
+      "right_id": 68,
+      "right_name": "ctx-rh-cuneus"
+    },
+    {
+      "left_id": 35,
+      "left_name": "ctx-lh-entorhinal",
+      "right_id": 69,
+      "right_name": "ctx-rh-entorhinal"
+    },
+    {
+      "left_id": 36,
+      "left_name": "ctx-lh-fusiform",
+      "right_id": 70,
+      "right_name": "ctx-rh-fusiform"
+    },
+    {
+      "left_id": 37,
+      "left_name": "ctx-lh-inferiorparietal",
+      "right_id": 71,
+      "right_name": "ctx-rh-inferiorparietal"
+    },
+    {
+      "left_id": 38,
+      "left_name": "ctx-lh-inferiortemporal",
+      "right_id": 72,
+      "right_name": "ctx-rh-inferiortemporal"
+    },
+    {
+      "left_id": 39,
+      "left_name": "ctx-lh-isthmuscingulate",
+      "right_id": 73,
+      "right_name": "ctx-rh-isthmuscingulate"
+    },
+    {
+      "left_id": 40,
+      "left_name": "ctx-lh-lateraloccipital",
+      "right_id": 74,
+      "right_name": "ctx-rh-lateraloccipital"
+    },
+    {
+      "left_id": 41,
+      "left_name": "ctx-lh-lateralorbitofrontal",
+      "right_id": 75,
+      "right_name": "ctx-rh-lateralorbitofrontal"
+    },
+    {
+      "left_id": 42,
+      "left_name": "ctx-lh-lingual",
+      "right_id": 76,
+      "right_name": "ctx-rh-lingual"
+    },
+    {
+      "left_id": 43,
+      "left_name": "ctx-lh-medialorbitofrontal",
+      "right_id": 77,
+      "right_name": "ctx-rh-medialorbitofrontal"
+    },
+    {
+      "left_id": 44,
+      "left_name": "ctx-lh-middletemporal",
+      "right_id": 78,
+      "right_name": "ctx-rh-middletemporal"
+    },
+    {
+      "left_id": 45,
+      "left_name": "ctx-lh-parahippocampal",
+      "right_id": 79,
+      "right_name": "ctx-rh-parahippocampal"
+    },
+    {
+      "left_id": 46,
+      "left_name": "ctx-lh-paracentral",
+      "right_id": 80,
+      "right_name": "ctx-rh-paracentral"
+    },
+    {
+      "left_id": 47,
+      "left_name": "ctx-lh-parsopercularis",
+      "right_id": 81,
+      "right_name": "ctx-rh-parsopercularis"
+    },
+    {
+      "left_id": 48,
+      "left_name": "ctx-lh-parsorbitalis",
+      "right_id": 82,
+      "right_name": "ctx-rh-parsorbitalis"
+    },
+    {
+      "left_id": 49,
+      "left_name": "ctx-lh-parstriangularis",
+      "right_id": 83,
+      "right_name": "ctx-rh-parstriangularis"
+    },
+    {
+      "left_id": 50,
+      "left_name": "ctx-lh-pericalcarine",
+      "right_id": 84,
+      "right_name": "ctx-rh-pericalcarine"
+    },
+    {
+      "left_id": 51,
+      "left_name": "ctx-lh-postcentral",
+      "right_id": 85,
+      "right_name": "ctx-rh-postcentral"
+    },
+    {
+      "left_id": 52,
+      "left_name": "ctx-lh-posteriorcingulate",
+      "right_id": 86,
+      "right_name": "ctx-rh-posteriorcingulate"
+    },
+    {
+      "left_id": 53,
+      "left_name": "ctx-lh-precentral",
+      "right_id": 87,
+      "right_name": "ctx-rh-precentral"
+    },
+    {
+      "left_id": 54,
+      "left_name": "ctx-lh-precuneus",
+      "right_id": 88,
+      "right_name": "ctx-rh-precuneus"
+    },
+    {
+      "left_id": 55,
+      "left_name": "ctx-lh-rostralanteriorcingulate",
+      "right_id": 89,
+      "right_name": "ctx-rh-rostralanteriorcingulate"
+    },
+    {
+      "left_id": 56,
+      "left_name": "ctx-lh-rostralmiddlefrontal",
+      "right_id": 90,
+      "right_name": "ctx-rh-rostralmiddlefrontal"
+    },
+    {
+      "left_id": 57,
+      "left_name": "ctx-lh-superiorfrontal",
+      "right_id": 91,
+      "right_name": "ctx-rh-superiorfrontal"
+    },
+    {
+      "left_id": 58,
+      "left_name": "ctx-lh-superiorparietal",
+      "right_id": 92,
+      "right_name": "ctx-rh-superiorparietal"
+    },
+    {
+      "left_id": 59,
+      "left_name": "ctx-lh-superiortemporal",
+      "right_id": 93,
+      "right_name": "ctx-rh-superiortemporal"
+    },
+    {
+      "left_id": 60,
+      "left_name": "ctx-lh-supramarginal",
+      "right_id": 94,
+      "right_name": "ctx-rh-supramarginal"
+    },
+    {
+      "left_id": 61,
+      "left_name": "ctx-lh-frontalpole",
+      "right_id": 95,
+      "right_name": "ctx-rh-frontalpole"
+    },
+    {
+      "left_id": 62,
+      "left_name": "ctx-lh-temporalpole",
+      "right_id": 96,
+      "right_name": "ctx-rh-temporalpole"
+    },
+    {
+      "left_id": 63,
+      "left_name": "ctx-lh-transversetemporal",
+      "right_id": 97,
+      "right_name": "ctx-rh-transversetemporal"
+    },
+    {
+      "left_id": 64,
+      "left_name": "ctx-lh-insula",
+      "right_id": 98,
+      "right_name": "ctx-rh-insula"
+    }
+  ],
+  "unpaired_ids": [
+    10,
+    11,
+    12,
+    15
+  ]
+}

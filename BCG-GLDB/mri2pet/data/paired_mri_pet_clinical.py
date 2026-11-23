@@ -37,7 +37,9 @@ def prepare_table_dataframe(
             if missing:
                 raise ValueError(f"Missing table columns: {missing}")
         grouped = df[["PTID"] + table_cols].copy()
-        grouped[table_cols] = grouped.groupby("PTID", sort=False)[table_cols].bfill().ffill()
+        grouped[table_cols] = grouped.groupby("PTID", sort=False)[table_cols].transform(
+            lambda group: group.bfill().ffill()
+        )
         grouped = grouped.drop_duplicates("PTID", keep="first").reset_index(drop=True)
         grouped["DATE_KEY"] = "__static__"
         return grouped[["PTID", "DATE_KEY"] + table_cols], table_cols
@@ -60,7 +62,9 @@ def prepare_table_dataframe(
 
     group_cols = ["PTID", "DATE_KEY"]
     df = df[group_cols + table_cols].copy()
-    df[table_cols] = df.groupby(group_cols, sort=False)[table_cols].bfill().ffill()
+    df[table_cols] = df.groupby(group_cols, sort=False)[table_cols].transform(
+        lambda group: group.bfill().ffill()
+    )
     grouped = df.drop_duplicates(group_cols, keep="first").reset_index(drop=True)
     return grouped, table_cols
 

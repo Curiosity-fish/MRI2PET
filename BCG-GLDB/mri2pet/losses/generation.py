@@ -58,8 +58,14 @@ def masked_image_l1(prediction, target, brain_mask):
     return (per_sample / mask.flatten(1).sum(1).clamp_min(1)).mean()
 
 
+# These IDs refer specifically to the Parc98 atlas identified by this SHA-256.
+# See configs/parc98_hemisphere_pairs.json for the source labels and names.
+PARC98_ATLAS_SHA256 = 'e4ffea9635be911321a4af48f1555bd3ce985e7643c977f455c536d7d65d6a36'
+PARC98_HOMOLOGOUS_PAIRS = ((1, 18), (2, 19), (3, 20), (4, 21), (5, 22), (6, 23), (7, 24), (8, 25), (9, 26), (13, 27), (14, 28), (16, 29), (17, 30), (31, 65), (32, 66), (33, 67), (34, 68), (35, 69), (36, 70), (37, 71), (38, 72), (39, 73), (40, 74), (41, 75), (42, 76), (43, 77), (44, 78), (45, 79), (46, 80), (47, 81), (48, 82), (49, 83), (50, 84), (51, 85), (52, 86), (53, 87), (54, 88), (55, 89), (56, 90), (57, 91), (58, 92), (59, 93), (60, 94), (61, 95), (62, 96), (63, 97), (64, 98))
+
+
 def parc98_losses(prediction, target, labelmap):
-    """RPA, RBR, RVC, HAC. Labels 1/2,3/4,...,97/98 are homologous pairs."""
+    """RPA, RBR, RVC, and HAC over the 47 true homologous pairs."""
     if prediction.shape != target.shape or prediction.shape[1] != 1:
         raise ValueError("PET tensors must both have shape [B,1,D,H,W]")
     if tuple(labelmap.shape) != tuple(prediction.shape[-3:]):
@@ -83,8 +89,12 @@ def parc98_losses(prediction, target, labelmap):
     rpa = torch.stack(rpa_terms, dim=1).mean()
     rbr = ((pm[:, :-1] - pm[:, 1:]) - (tm[:, :-1] - tm[:, 1:])).abs().mean()
     rvc = torch.stack(rvc_terms, dim=1).mean()
-    ph = (pm[:, 0::2] - pm[:, 1::2]) / (pm[:, 0::2].abs() + pm[:, 1::2].abs() + 1e-6)
-    th = (tm[:, 0::2] - tm[:, 1::2]) / (tm[:, 0::2].abs() + tm[:, 1::2].abs() + 1e-6)
+    left = torch.tensor([a - 1 for a, _ in PARC98_HOMOLOGOUS_PAIRS], device=pm.device)
+    right = torch.tensor([b - 1 for _, b in PARC98_HOMOLOGOUS_PAIRS], device=pm.device)
+    p_left, p_right = pm.index_select(1, left), pm.index_select(1, right)
+    t_left, t_right = tm.index_select(1, left), tm.index_select(1, right)
+    ph = (p_left - p_right) / (p_left.abs() + p_right.abs() + 1e-6)
+    th = (t_left - t_right) / (t_left.abs() + t_right.abs() + 1e-6)
     hac = (ph - th).abs().mean()
     return {"rpa": rpa, "rbr": rbr, "rvc": rvc, "hac": hac}
 

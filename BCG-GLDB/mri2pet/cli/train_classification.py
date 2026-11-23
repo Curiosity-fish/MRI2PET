@@ -110,12 +110,42 @@ def run_experiment(cfg, name, exp, training_pool, fixed_test, clinical_table, de
         raise ValueError("The thesis uses 160×192×160 classification volumes")
     seed = int(cfg.get("seed", 42))
     set_seed(seed)
-    folds = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=seed)
+    fold_file = cfg["data"].get("fold_split_csv")
+    if fold_file:
+        saved = pd.read_csv(data_root / fold_file, dtype={"subject_id": str, "sample_id": str})
+        required = {"fold", "subject_id", "sample_id", "split"}
+        if not required.issubset(saved.columns):
+            raise ValueError(f"Saved fold file lacks columns: {sorted(required - set(saved.columns))}")
+        sample_keys = list(zip(training_pool.subject_id.astype(str), training_pool.sample_id.astype(str)))
+        test_keys = set(zip(fixed_test.subject_id.astype(str), fixed_test.sample_id.astype(str)))
+        if set(saved["fold"].unique()) != {1, 2, 3, 4, 5}:
+            raise ValueError("Saved fold file must contain exactly folds 1 to 5")
+        fold_indices = []
+        validation_counts = {key: 0 for key in sample_keys}
+        for fold_number in range(1, 6):
+            part = saved[saved["fold"] == fold_number]
+            if part.duplicated(["subject_id", "sample_id"]).any():
+                raise ValueError(f"Duplicate sample in saved fold {fold_number}")
+            key_to_split = {(row.subject_id, row.sample_id): row.split for row in part.itertuples()}
+            if set(key_to_split) != set(sample_keys) | test_keys:
+                raise ValueError(f"Saved fold {fold_number} does not match current pool/test")
+            if any(key_to_split[k] != "final_val" for k in test_keys):
+                raise ValueError(f"Saved fold {fold_number} changes the fixed test")
+            if any(key_to_split[k] not in {"train", "val"} for k in sample_keys):
+                raise ValueError(f"Invalid pool assignment in saved fold {fold_number}")
+            tr = [i for i,k in enumerate(sample_keys) if key_to_split[k] == "train"]
+            va = [i for i,k in enumerate(sample_keys) if key_to_split[k] == "val"]
+            for i in va:
+                validation_counts[sample_keys[i]] += 1
+            fold_indices.append((tr, va))
+        if any(n != 1 for n in validation_counts.values()):
+            raise ValueError("Each training-pool sample must be in validation exactly once")
+    else:
+        folds = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=seed)
+        fold_indices = folds.split(training_pool, training_pool.label, training_pool.subject_id)
     results = []
     fixed_ids = fixed_test.sample_id.astype(str).tolist()
-    for fold, (train_indices, val_indices) in enumerate(
-        folds.split(training_pool, training_pool.label, training_pool.subject_id), start=1
-    ):
+    for fold, (train_indices, val_indices) in enumerate(fold_indices, start=1):
         fold_dir = output / f"fold_{fold}"
         fold_dir.mkdir(exist_ok=True)
         train_frame = training_pool.iloc[train_indices].copy()
