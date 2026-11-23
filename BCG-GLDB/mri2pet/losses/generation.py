@@ -73,19 +73,10 @@ def parc98_losses(prediction, target, labelmap):
         pred_means.append(pm)
         true_means.append(tm)
         rpa_terms.append(((prediction - target).abs() * mask).flatten(1).sum(1) / count)
-        ps = (
-            (
-                ((prediction - pm[:, None, None, None, None]).square() * mask).flatten(1).sum(1)
-                / count
-            )
-            .clamp_min(0)
-            .sqrt()
-        )
-        ts = (
-            (((target - tm[:, None, None, None, None]).square() * mask).flatten(1).sum(1) / count)
-            .clamp_min(0)
-            .sqrt()
-        )
+        # Norm / sqrt(N) is the population standard deviation and has a finite
+        # zero gradient for a constant region, unlike sqrt(sum(x**2)).
+        ps = torch.linalg.vector_norm(((prediction - pm[:, None, None, None, None]) * mask).flatten(1), dim=1) / count.sqrt()
+        ts = torch.linalg.vector_norm(((target - tm[:, None, None, None, None]) * mask).flatten(1), dim=1) / count.sqrt()
         rvc_terms.append((ps - ts).abs())
     pm = torch.stack(pred_means, dim=1)
     tm = torch.stack(true_means, dim=1)
@@ -134,5 +125,5 @@ def generation_loss(
     else:
         roi = image.new_zeros(())
         regional = {name: roi for name in ("rpa", "rbr", "rvc", "hac")}
-    total = 0.5 * bridge + image + roi
+    total = bridge + image + roi
     return {"total": total, "bridge": bridge, "image": image, "roi": roi, **regional}

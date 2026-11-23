@@ -76,6 +76,4 @@ class PairedFDGPETDataset(torch.utils.data.Dataset):
             "target": pet,
             "subject_id": row["subject_id"],
             "sample_id": row["sample_id"],
-            "table_date_key": row.get("table_date_key"),
-            "has_table": bool(row.get("has_table", False)),
         }

@@ -29,7 +29,7 @@ class TimeResBlock3D(nn.Module):
         super().__init__()
         g1 = min(groups, in_ch)
         g2 = min(groups, out_ch)
-        self.norm1 = nn.GroupNorm(g1, in_ch)
+        self.norm1 = nn.GroupNorm(g2, out_ch)
         self.conv1 = nn.Conv3d(in_ch, out_ch, 3, padding=1)
         self.time = nn.Sequential(nn.SiLU(), nn.Linear(time_dim, out_ch))
         self.norm2 = nn.GroupNorm(g2, out_ch)
@@ -38,7 +38,7 @@ class TimeResBlock3D(nn.Module):
         self.skip = nn.Conv3d(in_ch, out_ch, 1) if in_ch != out_ch else nn.Identity()
 
     def forward(self, x: torch.Tensor, time_emb: torch.Tensor) -> torch.Tensor:
-        h = self.conv1(F.silu(self.norm1(x)))
-        h = h + self.time(time_emb).unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)
+        h = self.conv1(x)
+        h = F.silu(self.norm1(h) + self.time(time_emb).unsqueeze(-1).unsqueeze(-1).unsqueeze(-1))
         h = self.conv2(self.dropout(F.silu(self.norm2(h))))
         return h + self.skip(x)

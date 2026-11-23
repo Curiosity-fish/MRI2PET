@@ -1,4 +1,4 @@
-"""Chapter 4 classifiers and the seven named comparison configurations."""
+"""Chapter 4 TGLM multimodal classifier."""
 
 from __future__ import annotations
 
@@ -7,39 +7,12 @@ from torch import nn
 import torch.nn.functional as F
 
 
-from mri2pet.models.medicalnet.classifier import MedicalNetClassifier
 from mri2pet.models.medicalnet.resnet import resnet50
 from mri2pet.models.clinical_attention import ClinicalTableEncoder
 from mri2pet.models.global_context import GlobalViT3D
 
 
 TABLE_TYPES = [0, 0, 0, 1, 1, 1, 1, 1, 2, 2, 2] + [4] * 14
-
-
-def initialize_medicalnet50(model, checkpoint_path):
-    """Load a Med3D ResNet-50 backbone and adapt its first convolution to 1/2 inputs."""
-    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
-    source = checkpoint.get("state_dict", checkpoint.get("model", checkpoint))
-    if not isinstance(source, dict):
-        raise ValueError("MedicalNet checkpoint must contain a tensor state dictionary")
-    backbone = model.model.backbone if isinstance(model, IgnoreTable) else model.backbone
-    target = backbone.state_dict()
-    loaded = {}
-    for name, value in source.items():
-        name = name.removeprefix("module.").removeprefix("backbone.")
-        if name not in target or not isinstance(value, torch.Tensor):
-            continue
-        if name == "conv1.weight" and value.ndim == 5 and value.shape[1] != target[name].shape[1]:
-            value = value.mean(dim=1, keepdim=True).repeat(1, target[name].shape[1], 1, 1, 1)
-            value = value / target[name].shape[1]
-        if value.shape == target[name].shape:
-            loaded[name] = value
-    essential = ("conv1.weight", "layer1.0.conv1.weight", "layer4.2.conv3.weight")
-    absent = [name for name in essential if name not in loaded]
-    if absent:
-        raise ValueError(f"The supplied checkpoint is not a compatible Med3D ResNet-50: {absent}")
-    backbone.load_state_dict(loaded, strict=False)
-    return len(loaded)
 
 
 class CappedBiCA(nn.Module):
@@ -67,6 +40,8 @@ class CappedBiCA(nn.Module):
         self.table_norm = nn.LayerNorm(token_dim)
         self.image_attention = nn.MultiheadAttention(token_dim, heads, batch_first=True)
         self.table_attention = nn.MultiheadAttention(token_dim, heads, batch_first=True)
+        self.image_output_norm = nn.LayerNorm(token_dim)
+        self.table_output_norm = nn.LayerNorm(token_dim)
         self.output_projection = nn.Conv3d(token_dim, channels, 1)
         nn.init.normal_(self.output_projection.weight, std=5e-3)
         nn.init.zeros_(self.output_projection.bias)
@@ -95,11 +70,11 @@ class CappedBiCA(nn.Module):
             self.table_norm(tokens), image_kv, image_kv, need_weights=False
         )[0]
         image_delta = self.output_projection(
-            from_table.transpose(1, 2).reshape(batch, self.token_dim, depth, height, width)
+            self.image_output_norm(from_table).transpose(1, 2).reshape(batch, self.token_dim, depth, height, width)
         )
         image_delta = self.image_scale * image_delta * reliability[:, :, None, None, None]
         image_next = image + self.cap(image, image_delta, self.image_cap)
-        table_delta = self.table_scale * from_image * observed[:, :, None].to(from_image.dtype)
+        table_delta = self.table_scale * self.table_output_norm(from_image) * observed[:, :, None].to(from_image.dtype)
         table_next = tokens + self.cap(tokens, table_delta, self.table_cap)
         return image_next, table_next
 
@@ -170,93 +145,3 @@ class TGLM(nn.Module):
         return self.head(torch.cat([z3, z4, global_vector, table_vector], dim=1))
 
 
-class ClinicalConcatenationResNet(nn.Module):
-    def __init__(self, in_channels=2):
-        super().__init__()
-        self.backbone = MedicalNetClassifier(
-            model_depth=50, in_channels=in_channels, shortcut_type="B"
-        )
-        self.table = nn.Sequential(nn.Linear(50, 128), nn.ReLU(), nn.Linear(128, 128))
-        self.head = nn.Linear(self.backbone.backbone.out_channels + 128, 3)
-
-    def forward(self, image, table, missing):
-        visual = self.backbone.forward_features(image)
-        clinical = self.table(torch.cat([table, missing], dim=1))
-        return self.head(torch.cat([visual, clinical], dim=1))
-
-
-class IgnoreTable(nn.Module):
-    def __init__(self, model):
-        super().__init__()
-        self.model = model
-
-    def forward(self, image, table, missing):
-        return self.model(image)
-
-
-def build_classifier(name: str, in_channels: int):
-    """MedicalNet50 is the identical Baseline row in both comparison and ablation."""
-    key = name.lower().replace("-", "_")
-    if key in {"medicalnet50_3d", "baseline"}:
-        return IgnoreTable(
-            MedicalNetClassifier(model_depth=50, in_channels=in_channels, shortcut_type="B")
-        )
-    if key in {"tglm", "ours"}:
-        return TGLM(in_channels, use_table=True, use_global=True)
-    if key == "tglm_no_table":
-        return TGLM(in_channels, use_table=False, use_global=True)
-    if key == "table_branch":
-        return TGLM(in_channels, use_table=True, use_global=False)
-    if key == "global_branch":
-        return TGLM(in_channels, use_table=False, use_global=True)
-    if key == "early_fusion_3d_resnet":
-        if in_channels != 2:
-            raise ValueError("Early fusion requires MRI+PET input")
-        return IgnoreTable(MedicalNetClassifier(model_depth=18, in_channels=2, shortcut_type="B"))
-    if key == "clinical_concatenation_resnet":
-        return ClinicalConcatenationResNet(in_channels)
-    if key == "3d_densenet121":
-        from monai.networks.nets import DenseNet121
-
-        return IgnoreTable(DenseNet121(spatial_dims=3, in_channels=in_channels, out_channels=3))
-    if key == "3d_vit_small":
-        from monai.networks.nets import ViT
-
-        return IgnoreTable(
-            ViT(
-                in_channels=in_channels,
-                img_size=(160, 192, 160),
-                patch_size=(16, 16, 16),
-                hidden_size=384,
-                mlp_dim=1536,
-                num_layers=8,
-                num_heads=6,
-                classification=True,
-                num_classes=3,
-            )
-        )
-    if key == "3d_swin_t_encoder":
-        from monai.networks.nets.swin_unetr import SwinTransformer
-
-        backbone = SwinTransformer(
-            in_chans=in_channels,
-            embed_dim=48,
-            window_size=(7, 7, 7),
-            patch_size=(2, 2, 2),
-            depths=(2, 2, 6, 2),
-            num_heads=(3, 6, 12, 24),
-            spatial_dims=3,
-        )
-
-        class SwinClassifier(nn.Module):
-            def __init__(self):
-                super().__init__()
-                self.backbone = backbone
-                self.head = nn.Linear(768, 3)
-
-            def forward(self, image, table, missing):
-                feature = self.backbone(image)[-1]
-                return self.head(F.adaptive_avg_pool3d(feature, 1).flatten(1))
-
-        return SwinClassifier()
-    raise ValueError(f"Unknown thesis classification configuration: {name}")

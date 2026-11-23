@@ -318,6 +318,4 @@ class PairedT1FDGTableDataset(Dataset):
             ),
             "subject_id": row["subject_id"],
             "sample_id": row["sample_id"],
-            "table_date_key": row.get("table_date_key", ""),
-            "table_delta_days": row.get("table_delta_days", ""),
         }

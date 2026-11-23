@@ -23,7 +23,7 @@ from mri2pet.data.classification import (
     read_clinical_table,
 )
 from mri2pet.metrics.classification import classify_metrics, five_model_summary
-from mri2pet.models.classification import build_classifier, initialize_medicalnet50
+from mri2pet.models.classification import TGLM
 
 
 def set_seed(seed):
@@ -95,8 +95,8 @@ def check_experiment(exp):
     missing = required - set(exp)
     if missing:
         raise ValueError(f"Experiment lacks fields: {sorted(missing)}")
-    if exp["model"] == "early_fusion_3d_resnet" and exp["modality"] != "mri_pet":
-        raise ValueError("Early-fusion baseline requires MRI+PET input")
+    if exp["model"] != "tglm" or exp["modality"] != "mri_pet":
+        raise ValueError("This repository trains the full TGLM with MRI+PET+clinical input")
 
 
 def run_experiment(cfg, name, exp, training_pool, fixed_test, clinical_table, device):
@@ -173,17 +173,7 @@ def run_experiment(cfg, name, exp, training_pool, fixed_test, clinical_table, de
         }
         # One study seed; consecutive folds construct independent model instances.
         channels = 2 if exp["modality"] == "mri_pet" else 1
-        model = build_classifier(exp["model"], channels).to(device)
-        if exp["model"] == "medicalnet50_3d":
-            checkpoint_name = cfg["data"].get("medicalnet_pretrained_checkpoint")
-            if not checkpoint_name:
-                raise ValueError("MedicalNet50-3D requires its Med3D pretraining checkpoint")
-            checkpoint_path = Path(checkpoint_name).expanduser()
-            if not checkpoint_path.is_absolute():
-                checkpoint_path = data_root / checkpoint_path
-            if not checkpoint_path.is_file():
-                raise FileNotFoundError(f"Med3D checkpoint is missing: {checkpoint_path}")
-            initialize_medicalnet50(model, checkpoint_path)
+        model = TGLM(channels).to(device)
         optimizer = torch.optim.AdamW(
             model.parameters(),
             lr=1e-4,
@@ -294,25 +284,13 @@ def run(config_path, selected=None):
         if name not in experiments:
             raise KeyError(f"Unknown experiment: {name}")
         experiment = experiments[name]
-        if "alias_of" in experiment:
-            original = (
-                Path(cfg["output_dir"]).expanduser().resolve()
-                / experiment["alias_of"]
-                / "five_independent_models_summary.json"
-            )
-            if not original.exists():
-                raise FileNotFoundError(f"Run the shared MedicalNet experiment first: {original}")
-            output = Path(cfg["output_dir"]).expanduser().resolve() / name
-            output.mkdir(parents=True, exist_ok=True)
-            (output / "same_results_as.txt").write_text(str(original.parent), encoding="utf-8")
-            continue
         run_experiment(cfg, name, experiment, training_pool, fixed_test, clinical_table, device)
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=Path, required=True)
-    parser.add_argument("--experiment", help="Omit to run every configured comparison and ablation")
+    parser.add_argument("--experiment", help="Select the real- or synthetic-PET TGLM input")
     args = parser.parse_args()
     run(args.config, args.experiment)
 

@@ -12,7 +12,7 @@ from torch import nn
 import torch.nn.functional as F
 
 
-from mri2pet.models.clinical_attention import ClinicalTableEncoder
+from mri2pet.models.clinical_attention import MissingAwareFeatureTokenizer
 from mri2pet.models.unet_blocks import TimeEmbedding, TimeResBlock3D
 from mri2pet.models.blocks import ResidualBlock3D
 from mri2pet.models.global_context import GlobalViT3D
@@ -97,7 +97,7 @@ class MRIResidualPyramid(nn.Module):
     def __init__(self, channels=(48, 96, 192, 384), groups=8):
         super().__init__()
         c0, c1, c2, c3 = channels
-        self.stem = nn.Conv3d(1, c0, 3, padding=1)
+        self.stem = nn.Sequential(nn.Conv3d(1, c0, 3, padding=1), nn.GroupNorm(groups, c0), nn.SiLU())
         self.levels = nn.ModuleList(
             [
                 nn.Sequential(
@@ -127,27 +127,28 @@ class MRIResidualPyramid(nn.Module):
 class TimeGatedBiCA(nn.Module):
     """Image→table→image interaction at one of the seven U-Net locations."""
 
-    def __init__(self, channels: int, token_dim=128, time_dim=384, heads=4):
+    def __init__(self, channels: int, token_dim=128, time_dim=384, heads=4, token_grid=(5, 6, 5)):
         super().__init__()
         self.token_dim = token_dim
+        self.token_grid = tuple(token_grid)
         self.image_projection = nn.Conv3d(channels, token_dim, 1)
         self.to_feature = nn.Conv3d(token_dim, channels, 1)
         self.time_to_table = nn.Linear(time_dim, token_dim)
         self.time_to_image = nn.Linear(time_dim, channels)
         self.query_norm = nn.LayerNorm(token_dim)
         self.table_norm = nn.LayerNorm(token_dim)
-        self.delta_norm = nn.LayerNorm(token_dim)
         self.image_reads_table = nn.MultiheadAttention(token_dim, heads, batch_first=True)
         self.table_reads_image = nn.MultiheadAttention(token_dim, heads, batch_first=True)
         self.gate = nn.Conv3d(channels, channels, 1)
         self.residual_scale = nn.Parameter(torch.tensor(0.1))
 
     def forward(
-        self, feature, table_tokens, key_padding_mask, observed, reliability, time_embedding
+        self, feature, table_tokens, key_padding_mask, time_embedding
     ):
         batch, _, depth, height, width = feature.shape
         grid = self.image_projection(feature)
-        image_tokens = grid.flatten(2).transpose(1, 2)
+        pooled_shape = tuple(min(a, b) for a, b in zip(grid.shape[-3:], self.token_grid))
+        image_tokens = F.adaptive_avg_pool3d(grid, pooled_shape).flatten(2).transpose(1, 2)
         conditioned_table = table_tokens + self.time_to_table(time_embedding)[:, None, :]
         table_kv = self.table_norm(conditioned_table)
         first = self.image_reads_table(
@@ -162,26 +163,20 @@ class TimeGatedBiCA(nn.Module):
         table_delta = self.table_reads_image(
             self.table_norm(conditioned_table), image_kv, image_kv, need_weights=False
         )[0]
-        updated_table = table_tokens + table_delta * observed[:, :, None].to(table_delta.dtype)
-        final_table_kv = self.table_norm(
-            updated_table + self.time_to_table(time_embedding)[:, None, :]
-        )
+        updated_table = conditioned_table + table_delta
+        final_table_kv = self.table_norm(updated_table)
         second = self.image_reads_table(
-            self.query_norm(temporary_image),
+            self.query_norm(image_tokens),
             final_table_kv,
             final_table_kv,
             key_padding_mask=key_padding_mask,
             need_weights=False,
         )[0]
-        delta = (
-            self.delta_norm(first + second)
-            .transpose(1, 2)
-            .reshape(batch, self.token_dim, depth, height, width)
-        )
+        delta = (first + second).transpose(1, 2).reshape(batch, self.token_dim, *pooled_shape)
+        delta = F.interpolate(delta, size=(depth, height, width), mode="trilinear", align_corners=False)
         delta = self.to_feature(delta)
-        gate_input = feature + self.time_to_image(time_embedding)[:, :, None, None, None]
-        update = self.residual_scale * torch.sigmoid(self.gate(gate_input)) * delta
-        update = update * reliability[:, :, None, None, None].to(update.dtype)
+        gate_logits = self.gate(feature) + self.time_to_image(time_embedding)[:, :, None, None, None]
+        update = self.residual_scale * torch.sigmoid(gate_logits) * delta
         return feature + update, updated_table
 
 
@@ -210,16 +205,17 @@ class GlobalContextPyramid(nn.Module):
 
     def forward(self, bridge_state):
         h = self.stem(bridge_state)
-        shapes = [h.shape[-3:]]
+        features = [h]
         for layer in self.down:
             h = layer(h)
-            shapes.append(h.shape[-3:])
+            features.append(h)
         h = self.transformer(h)
         outputs = [None, None, None, h]
         for index, projection in zip((2, 1, 0), self.up):
             h = projection(
-                F.interpolate(h, size=shapes[index], mode="trilinear", align_corners=False)
+                F.interpolate(h, size=features[index].shape[-3:], mode="trilinear", align_corners=False)
             )
+            h = h + features[index]
             outputs[index] = h
         return outputs
 
@@ -274,14 +270,8 @@ class PaperBCGGLDB(nn.Module):
         c0, c1, c2, c3 = channels
         self.time = TimeEmbedding(time_dim)
         self.mri_encoder = MRIResidualPyramid(mri_channels)
-        self.table_encoder = ClinicalTableEncoder(
-            len(table_feature_types),
-            table_feature_types,
-            token_dim=token_dim,
-            depth=2,
-            heads=4,
-            ff_mult=4,
-            dropout=0.0,
+        self.table_encoder = MissingAwareFeatureTokenizer(
+            len(table_feature_types), token_dim, table_feature_types, num_feature_types=7
         )
         self.global_context = GlobalContextPyramid(
             4, channels, global_token_dim, global_depth, global_heads, bottleneck_shape
@@ -320,7 +310,7 @@ class PaperBCGGLDB(nn.Module):
             nn.init.zeros_(projection.bias)
         self.bica = nn.ModuleDict(
             {
-                name: TimeGatedBiCA(ch, token_dim, time_dim)
+                name: TimeGatedBiCA(ch, token_dim, time_dim, token_grid=bottleneck_shape)
                 for name, ch in zip(self.STAGES, local_channels)
             }
         )
@@ -341,13 +331,9 @@ class PaperBCGGLDB(nn.Module):
         structural = self.mri_encoder(mri) if self.use_mri_structure else None
         global_features = self.global_context(z_k) if self.use_global else None
         if self.use_clinical:
-            table_state = self.table_encoder(table, table_mask)
-            tokens = table_state["tokens"]
-            mask = table_state["key_padding_mask"]
-            observed = table_state["effective_observed"]
-            reliability = table_state["reliability"]
+            tokens, mask, _, _ = self.table_encoder(table, table_mask)
         else:
-            tokens = mask = observed = reliability = None
+            tokens = mask = None
 
         def inject(name, feature, level):
             if structural is not None:
@@ -360,7 +346,7 @@ class PaperBCGGLDB(nn.Module):
             nonlocal tokens
             if tokens is not None:
                 feature, tokens = self.bica[name](
-                    feature, tokens, mask, observed, reliability, time_embedding
+                    feature, tokens, mask, time_embedding
                 )
             return (
                 self.global_gate[name](feature, global_features[level])

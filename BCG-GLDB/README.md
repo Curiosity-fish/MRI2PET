@@ -1,45 +1,45 @@
-# MRI2PET: MRI与临床信息引导的三维FDG-PET合成
+# MRI2PET论文主方法代码
 
-本仓库整理硕士论文《基于MRI与临床信息引导的三维FDG-PET合成方法研究》的代码，包括生成方法BCG-GLDB及用于疾病分类验证的TGLM。代码按论文描述实现；与历史实验记录、权重或论文表格数值的一致性仍需逐项复核，不能视作已完成的数值复现。
+本项目实现论文《基于MRI与临床信息引导的三维FDG-PET合成方法研究》中的Patch-AE、BCG-GLDB生成网络和TGLM分类网络，以及各自的训练和生成影像评价入口。输入影像需要事先完成论文所述预处理；仓库不包含预处理流程、外部对比模型、对比实验脚本、数据或训练权重。
 
-## 方法与实现
+## 项目结构
 
-生成方法采用Patch-AE和全脑潜空间重组、MRI到PET的扩散桥、MRI多尺度结构条件、缺失感知临床表格交互、全局特征分支及Parc98区域损失。分类模型TGLM用于评估合成影像在下游疾病分类中的信息可利用性。
+- `configs/`：配置示例，使用前必须改成实际路径。
+- `mri2pet/models/`：Patch-AE、BCG-GLDB和TGLM。
+- `mri2pet/losses/`：桥接、图像与Parc98损失。
+- `mri2pet/data/`：已处理影像及临床表格的读取。
+- `mri2pet/metrics/`：生成及分类评价指标。
+- `mri2pet/cli/`：训练和生成评价入口。
+- `tests/`：小尺寸单元测试。
 
-| 内容 | 位置 |
-| --- | --- |
-| 生成网络与Patch-AE | `mri2pet/models/generation.py` |
-| 扩散桥与生成损失 | `mri2pet/losses/generation.py` |
-| 生成训练及评估 | `mri2pet/cli/train_autoencoder.py`、`train_generation.py`、`evaluate_generation.py` |
-| 分类网络、数据及训练 | `mri2pet/models/classification.py`、`mri2pet/data/classification.py`、`mri2pet/cli/train_classification.py` |
-| 实验配置及测试 | `configs/`、`tests/` |
-| 基础组件与影像指标 | `mri2pet/models/`、`mri2pet/data/`、`mri2pet/metrics/` |
+## 环境
 
-## 环境与数据
+建议Python 3.10，按设备安装对应版本的PyTorch，然后安装`requirements.txt`中的其他依赖。运行命令前切换到仓库根目录。实际三维网络的显存需求取决于设备与训练设置。
 
-使用Python 3.10或3.11和PyTorch；依赖见`requirements.txt`。请根据GPU安装匹配的PyTorch CUDA构建，再安装其余依赖。完整三维训练显存需求取决于硬件和配置。
+## 输入数据
 
-```bash
-python -m pip install -r requirements.txt
-```
+准备符合论文预处理定义的MRI、FDG-PET及配对表、受试者级划分表、临床表和Parc98标签图，配置文件中的路径均为示例。`data.root`作为配置内相对路径的基准；CSV中的MRI和PET路径应填写可访问的绝对路径。不要提交受限数据、临床记录或训练检查点。
 
-本仓库不分发ADNI/NACC影像、临床表、受试者清单、Parc98标签图、预训练模型或实验权重。请按数据库要求申请数据，完成论文规定的影像预处理，并在`configs/`中填写路径。生成任务配对CSV至少需要`subject_id,sample_id,t1_path,fdg_pet_path,has_fdg_pet,t1_date`；划分CSV至少需要`subject_id,sample_id,split`。详细要求见[数据与复现边界](docs/reproducibility.md)。
+生成任务的配对表至少包括`subject_id,sample_id,t1_path,fdg_pet_path,has_fdg_pet,t1_date`，划分表包括`subject_id,sample_id,split`，其中划分值为`train`、`val`、`final_val`。同一受试者不得跨集合。临床表需包含`PTID`和`configs/generation.yaml`列出的25个字段；有访视日期时使用`VISDATE`。Parc98标签图需要有1—98全部标签，标签空间必须与已处理影像对应，奇偶成对表示左右同源区域。
 
-## 训练与评估
+分类任务还需包含诊断`label`的样本表（CN=0、MCI=1、AD=2）、相同受试者级划分信息，以及真实PET或合成PET路径列。参考`configs/classification.example.yaml`。分类入口检查固定测试受试者是否出现在生成器训练或验证集合中；临床填补和标准化统计仅从每折分类训练样本估计。
 
-在仓库根目录运行；先检查配置中的数据和权重路径。每个阶段需要真实数据，示例配置不能直接复现论文数值。
+## 运行
+
+按实际位置修改配置文件。生成阶段必须先训练或提供与当前实现兼容的Patch-AE检查点，并在`configs/generation.yaml`配置对应路径。
 
 ```bash
 python -m mri2pet.cli.train_autoencoder --config configs/patch_ae.yaml
 python -m mri2pet.cli.train_generation --config configs/generation.yaml
-python -m mri2pet.cli.evaluate_generation --source-config configs/generation.yaml --checkpoint experiments/paper_bcg_gldb_adni/best_generation.pt --target-config configs/generation_nacc.yaml --splits final_val --output experiments/adni_to_nacc
-python -m mri2pet.cli.make_ablation_configs --base-config configs/generation.yaml --output-dir configs/ablations
+python -m mri2pet.cli.evaluate_generation --source-config configs/generation.yaml --checkpoint experiments/paper_bcg_gldb_adni/best_generation.pt --target-config configs/generation.yaml --splits final_val --output experiments/evaluation
 python -m mri2pet.cli.train_classification --config configs/classification.example.yaml --experiment source_ours_tglm
 python -m unittest discover -s tests -v
 ```
 
-跨数据库反向实验需要以另一数据库为训练源重新训练。分类比较依赖真实PET和合成PET文件；外部基线的训练代码与权重未提供。
+生成训练使用验证集平均SSIM选择模型；分类训练使用折内验证集Macro-F1选择模型。`source_real_tglm`和`source_ours_tglm`分别选择真实或合成PET输入，必须在样本表中提供对应路径。
 
-## 已知边界
+## 版本说明
 
-论文对齐代码来自本地整理版；服务器论文入口后来发生过修改，包括桥损失系数和临床编码实现。近期的端点直出及GV28损失实验属于后续试验。它们不能与本仓库的论文对齐入口混为一谈，详情见[版本说明](docs/reproducibility.md)。
+本版修正了已确认与论文不一致的损失系数、MRI结构编码起始层、时间条件残差块、临床双向交互和全局分支，并补充分类BiCA输出归一化。网络结构与旧版不同，旧生成器及分类检查点可能无法严格加载；不要把旧权重或旧实验结果直接视作本版结果。Patch-AE结构未改变，但若要求训练过程与本版一致，需以单项L1重新训练。
+
+测试使用人工构造的小尺寸数据，不代表完整尺寸训练、历史实验复现或临床验证。请在实际数据和GPU环境中验证显存、路径及训练流程。

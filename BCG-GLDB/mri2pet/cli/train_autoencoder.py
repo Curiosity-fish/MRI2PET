@@ -39,8 +39,8 @@ def run(config_path: Path):
         base_channels=int(cfg["model"]["base_channels"]),
         chunk_size=int(cfg["training"].get("patch_chunk_size", 16)),
     ).to(device)
-    if float(cfg["training"].get("lambda_rec", 2.0)) != 2.0:
-        raise ValueError("The thesis equivalent single-L1 reconstruction weight is 2.0")
+    if float(cfg["training"].get("lambda_rec", 1.0)) != 1.0:
+        raise ValueError("The thesis uses a single unweighted L1 reconstruction loss")
     datasets = {
         split: PairedFDGPETDataset(
             pairs_csv=data_root / cfg["data"]["pairs_csv"],
@@ -81,7 +81,7 @@ def run(config_path: Path):
                 pet = batch["target"].to(device)
                 with torch.set_grad_enabled(split == "train"):
                     reconstruction = ae(pet)
-                    loss = 2.0 * F.l1_loss(reconstruction, pet)
+                    loss = F.l1_loss(reconstruction, pet)
                     if split == "train":
                         optimizer.zero_grad(set_to_none=True)
                         loss.backward()
